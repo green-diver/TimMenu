@@ -30,7 +30,11 @@ function WidgetBase.Setup(win, widgetType, label, width, height)
 	local absX, absY = win.X + x, win.Y + y
 
 	-- Create unique widget key
-	local widgetKey = win.id .. ":" .. widgetType .. ":" .. label .. ":" .. widgetIndex
+	local keyRoot = win.id
+	if type(win._idPrefix) == "string" and win._idPrefix ~= "" then
+		keyRoot = keyRoot .. ":" .. win._idPrefix
+	end
+	local widgetKey = keyRoot .. ":" .. widgetType .. ":" .. label .. ":" .. widgetIndex
 
 	-- Widget bounds for interaction and tooltips
 	local bounds = { x = absX, y = absY, w = width, h = height }

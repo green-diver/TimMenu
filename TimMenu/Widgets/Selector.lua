@@ -10,7 +10,11 @@ local function Selector(win, label, selectedIndex, options)
 	win._widgetCounter = (win._widgetCounter or 0) + 1
 	win._selectors = win._selectors or {}
 	local safeLabel = label or "<nil_selector_label>"
-	local key = tostring(win.id) .. ":selector:" .. safeLabel
+	local keyRoot = tostring(win.id)
+	if type(win._idPrefix) == "string" and win._idPrefix ~= "" then
+		keyRoot = keyRoot .. ":" .. win._idPrefix
+	end
+	local key = keyRoot .. ":selector:" .. safeLabel
 	local entry = win._selectors[key]
 	if not entry then
 		entry = { selected = selectedIndex or 1 }

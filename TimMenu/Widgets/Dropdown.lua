@@ -72,7 +72,11 @@ local function Dropdown(win, label, selectedIndex, options)
 
 	-- State management
 	win._dropdowns = win._dropdowns or {}
-	local key = tostring(win.id) .. ":dropdown:" .. label
+	local keyRoot = tostring(win.id)
+	if type(win._idPrefix) == "string" and win._idPrefix ~= "" then
+		keyRoot = keyRoot .. ":" .. win._idPrefix
+	end
+	local key = keyRoot .. ":dropdown:" .. label
 	local entry = win._dropdowns[key]
 	if not entry then
 		entry = { selected = selectedIndex or 1, open = false }

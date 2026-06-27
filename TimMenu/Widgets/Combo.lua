@@ -73,7 +73,11 @@ local function Combo(win, label, selected, options)
 
 	-- State management
 	win._combos = win._combos or {}
-	local key = tostring(win.id) .. ":combo:" .. label
+	local keyRoot = tostring(win.id)
+	if type(win._idPrefix) == "string" and win._idPrefix ~= "" then
+		keyRoot = keyRoot .. ":" .. win._idPrefix
+	end
+	local key = keyRoot .. ":combo:" .. label
 	local entry = win._combos[key]
 	if not entry then
 		entry = { selected = {}, open = false }

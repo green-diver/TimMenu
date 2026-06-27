@@ -33,7 +33,11 @@ local function Image(win, tex, targetW, targetH, data)
 
 	-- Reserve layout space
 	win._widgetCounter = (win._widgetCounter or 0) + 1
-	local widgetKey = win.id .. ":Image:" .. win._widgetCounter
+	local keyRoot = win.id
+	if type(win._idPrefix) == "string" and win._idPrefix ~= "" then
+		keyRoot = keyRoot .. ":" .. win._idPrefix
+	end
+	local widgetKey = keyRoot .. ":Image:" .. win._widgetCounter
 	local xRel, yRel = win:AddWidget(drawW, drawH)
 	local absX, absY = win.X + xRel, win.Y + yRel
 

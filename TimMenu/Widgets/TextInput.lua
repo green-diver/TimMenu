@@ -109,7 +109,11 @@ local function TextInput(win, label, text)
 
 	win._widgetCounter = (win._widgetCounter or 0) + 1
 	win._textInputs = win._textInputs or {}
-	local storageKey = tostring(win.id) .. ":textinput:" .. label
+	local keyRoot = tostring(win.id)
+	if type(win._idPrefix) == "string" and win._idPrefix ~= "" then
+		keyRoot = keyRoot .. ":" .. win._idPrefix
+	end
+	local storageKey = keyRoot .. ":textinput:" .. label
 	local entry = win._textInputs[storageKey]
 
 	if not entry then
@@ -139,7 +143,7 @@ local function TextInput(win, label, text)
 	local bounds = { x = absX, y = absY, w = width, h = height }
 
 	-- Unified mouse interaction for activation/deactivation
-	local widgetKey = win.id .. ":TextInput:" .. label .. ":" .. win._widgetCounter
+	local widgetKey = keyRoot .. ":TextInput:" .. label .. ":" .. win._widgetCounter
 	local hovered, pressed, clicked = Interaction.Process(win, widgetKey, bounds, false)
 	local changed = false
 	if clicked and not entry.active then

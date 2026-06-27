@@ -7,63 +7,6 @@ local lmbx = globals -- alias for Lmaobox API
 TimMenuSpawnGlobal = TimMenuSpawnGlobal or { nextIndex = 0 }
 local sharedSpawnState = TimMenuSpawnGlobal
 
-local function getWindowRectForSpawn(win, fallbackHeight)
-	if type(win) ~= "table" then
-		return nil
-	end
-	local x = win.X
-	local y = win.Y
-	local w = win.W
-	local h = win.H
-	if type(x) ~= "number" or type(y) ~= "number" or type(w) ~= "number" or type(h) ~= "number" then
-		return nil
-	end
-	if h <= 0 then
-		h = fallbackHeight
-	end
-	if h < Globals.Defaults.TITLE_BAR_HEIGHT then
-		h = Globals.Defaults.TITLE_BAR_HEIGHT
-	end
-	return { x = x, y = y, w = w, h = h }
-end
-
-local function overlapArea(a, b)
-	local left = math.max(a.x, b.x)
-	local right = math.min(a.x + a.w, b.x + b.w)
-	if right <= left then
-		return 0
-	end
-	local top = math.max(a.y, b.y)
-	local bottom = math.min(a.y + a.h, b.y + b.h)
-	if bottom <= top then
-		return 0
-	end
-	return (right - left) * (bottom - top)
-end
-
-local function getCandidateObscureScore(candidateRect, fallbackHeight)
-	local totalOverlap = 0
-	if type(TimMenuGlobal) ~= "table" or type(TimMenuGlobal.windows) ~= "table" then
-		return totalOverlap
-	end
-
-	for _, win in pairs(TimMenuGlobal.windows) do
-		local winRect = getWindowRectForSpawn(win, fallbackHeight)
-		if winRect then
-			totalOverlap = totalOverlap + overlapArea(candidateRect, winRect)
-		end
-	end
-
-	return totalOverlap
-end
-
-local function randomInRange(minValue, maxValue)
-	if maxValue <= minValue then
-		return minValue
-	end
-	return math.random(minValue, maxValue)
-end
-
 local function clamp(value, minValue, maxValue)
 	if value < minValue then
 		return minValue
@@ -72,20 +15,6 @@ local function clamp(value, minValue, maxValue)
 		return maxValue
 	end
 	return value
-end
-
-local function topLeftDistanceScore(x, y)
-	return x + y
-end
-
-local function isBetterCandidate(testOverlap, testDistance, bestOverlap, bestDistance)
-	if testOverlap < bestOverlap then
-		return true
-	end
-	if testOverlap > bestOverlap then
-		return false
-	end
-	return testDistance < bestDistance
 end
 
 local function getDefaultSpawnPosition(windowWidth, windowHeight)
@@ -101,16 +30,20 @@ local function getDefaultSpawnPosition(windowWidth, windowHeight)
 		estimatedHeight = Globals.Defaults.TITLE_BAR_HEIGHT
 	end
 
-	sharedSpawnState.nextIndex = (sharedSpawnState.nextIndex or 0) + 1
+	local spawnIndex = sharedSpawnState.nextIndex or 0
+	sharedSpawnState.nextIndex = spawnIndex + 1
 	if sharedSpawnState.nextIndex > 10000 then
-		sharedSpawnState.nextIndex = 1
+		sharedSpawnState.nextIndex = 0
 	end
 
+	local cascadeOffset = Globals.Defaults.WINDOW_CASCADE_OFFSET or (padX * 2)
+	local x = baseX + spawnIndex * cascadeOffset
+	local y = baseY + spawnIndex * cascadeOffset
+	local hasScreenBounds = false
 	local minX = padX
 	local minY = padY
-	local maxX = baseX + 300
-	local maxY = baseY + 200
-	local hasScreenBounds = false
+	local maxX = math.max(minX, baseX + 300)
+	local maxY = math.max(minY, baseY + 200)
 
 	local okScreenSize, screenW, screenH = pcall(draw.GetScreenSize)
 	if okScreenSize and type(screenW) == "number" and type(screenH) == "number" and screenW > 0 and screenH > 0 then
@@ -126,37 +59,14 @@ local function getDefaultSpawnPosition(windowWidth, windowHeight)
 		if maxY < minY then
 			maxY = minY
 		end
-	else
-		maxX = math.max(minX, baseX + 300)
-		maxY = math.max(minY, baseY + 200)
-	end
-
-	local bestX = randomInRange(minX, maxX)
-	local bestY = randomInRange(minY, maxY)
-	local bestRect = { x = bestX, y = bestY, w = windowWidth, h = estimatedHeight }
-	local bestScore = getCandidateObscureScore(bestRect, estimatedHeight)
-	local bestDistance = topLeftDistanceScore(bestX, bestY)
-
-	for _ = 2, 10 do
-		local testX = randomInRange(minX, maxX)
-		local testY = randomInRange(minY, maxY)
-		local testRect = { x = testX, y = testY, w = windowWidth, h = estimatedHeight }
-		local testScore = getCandidateObscureScore(testRect, estimatedHeight)
-		local testDistance = topLeftDistanceScore(testX, testY)
-		if isBetterCandidate(testScore, testDistance, bestScore, bestDistance) then
-			bestScore = testScore
-			bestDistance = testDistance
-			bestX = testX
-			bestY = testY
-		end
 	end
 
 	if hasScreenBounds then
-		bestX = clamp(bestX, minX, maxX)
-		bestY = clamp(bestY, minY, maxY)
+		x = clamp(x, minX, maxX)
+		y = clamp(y, minY, maxY)
 	end
 
-	return bestX, bestY
+	return x, y
 end
 
 local Window = {}

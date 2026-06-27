@@ -62,6 +62,12 @@ TimMenu.Options = {
 		ShowAlways = false,
 		LboxIndependent = false,
 	},
+	GlobalWindow = {
+		Enabled = false,
+		Title = "TimMenu",
+		Id = "__TimMenuGlobalWindow",
+		UseHeaderTabs = true,
+	},
 }
 
 local function resolveShowAlwaysOption(optionsTable, fallbackValue)
@@ -95,6 +101,48 @@ function TimMenu.GetVisibilityOptions()
 	return {
 		ShowAlways = TimMenu.Options.Visibility.ShowAlways,
 		LboxIndependent = TimMenu.Options.Visibility.LboxIndependent,
+	}
+end
+
+local function resolveBooleanOption(options, key, fallbackValue)
+	if type(options) == "table" and options[key] ~= nil then
+		return options[key] and true or false
+	end
+	return fallbackValue and true or false
+end
+
+function TimMenu.SetGlobalWindowOptions(options)
+	if type(options) ~= "table" then
+		return
+	end
+	local globalOptions = TimMenu.Options.GlobalWindow
+	globalOptions.Enabled = resolveBooleanOption(options, "Enabled", globalOptions.Enabled)
+	if options.enabled ~= nil then
+		globalOptions.Enabled = options.enabled and true or false
+	end
+	if type(options.Title) == "string" then
+		globalOptions.Title = options.Title
+	elseif type(options.title) == "string" then
+		globalOptions.Title = options.title
+	end
+	if type(options.Id) == "string" then
+		globalOptions.Id = options.Id
+	elseif type(options.id) == "string" then
+		globalOptions.Id = options.id
+	end
+	globalOptions.UseHeaderTabs = resolveBooleanOption(options, "UseHeaderTabs", globalOptions.UseHeaderTabs)
+	if options.useHeaderTabs ~= nil then
+		globalOptions.UseHeaderTabs = options.useHeaderTabs and true or false
+	end
+end
+
+function TimMenu.GetGlobalWindowOptions()
+	local globalOptions = TimMenu.Options.GlobalWindow
+	return {
+		Enabled = globalOptions.Enabled,
+		Title = globalOptions.Title,
+		Id = globalOptions.Id,
+		UseHeaderTabs = globalOptions.UseHeaderTabs,
 	}
 end
 
@@ -177,19 +225,131 @@ local function resolveBeginArgs(visible, id, options)
 		resolvedVisible = resolvedVisible and gui.IsMenuOpen()
 	end
 
-	return resolvedVisible, resolvedId
+	return resolvedVisible, resolvedId, resolvedOptions
 end
 
-function TimMenu.Begin(title, visible, id, options)
-	TimMenu.FontReset()
-	local resolvedVisible, resolvedId = resolveBeginArgs(visible, id, options)
-	local key = (resolvedId or title)
+local function normalizeScriptName(rawName)
+	if type(rawName) ~= "string" or rawName == "" then
+		return nil
+	end
+	local fileName = rawName:match("([^/\\]+)%.lua$") or rawName:match("([^/\\]+)$") or rawName
+	return (fileName:gsub("%.lua$", ""))
+end
 
-	local win = getOrCreateWindow(key, title, resolvedVisible)
-	win:update()
+local function resolveScriptName(title, key, options)
+	if type(options) == "table" then
+		local explicitName = options.ScriptName or options.scriptName or options.Script or options.script
+		local normalizedExplicit = normalizeScriptName(explicitName)
+		if normalizedExplicit then
+			return normalizedExplicit
+		end
+	end
 
+	if type(GetScriptName) == "function" then
+		local ok, scriptName = pcall(GetScriptName)
+		local normalizedScriptName = ok and normalizeScriptName(scriptName) or nil
+		if normalizedScriptName then
+			return normalizedScriptName
+		end
+	end
+
+	return tostring(key or title or "Script")
+end
+
+local function isGlobalWindowEnabled(options)
+	if type(options) == "table" then
+		if options.GlobalWindow ~= nil then
+			return options.GlobalWindow and true or false
+		end
+		if options.globalWindow ~= nil then
+			return options.globalWindow and true or false
+		end
+		if options.Consolidate ~= nil then
+			return options.Consolidate and true or false
+		end
+		if options.consolidate ~= nil then
+			return options.consolidate and true or false
+		end
+	end
+	return TimMenu.Options.GlobalWindow.Enabled
+end
+
+local function getConsolidationState()
+	TimMenuGlobal.consolidation = TimMenuGlobal.consolidation or {
+		scripts = {},
+		scriptOrder = {},
+		selectedScript = 1,
+		selectedWindows = {},
+		layoutFrame = nil,
+		tabsFrame = nil,
+	}
+	return TimMenuGlobal.consolidation
+end
+
+local function clampIndex(index, count)
+	if count <= 0 then
+		return 1
+	end
+	if type(index) ~= "number" then
+		return 1
+	end
+	if index < 1 then
+		return 1
+	end
+	if index > count then
+		return count
+	end
+	return index
+end
+
+local function registerConsolidatedEntry(title, key, options)
+	local state = getConsolidationState()
+	local frame = globals.FrameCount()
+	local scriptName = resolveScriptName(title, key, options)
+	local script = state.scripts[scriptName]
+	if not script then
+		script = {
+			key = scriptName,
+			label = scriptName,
+			windows = {},
+			windowOrder = {},
+			lastFrameTouched = frame,
+		}
+		state.scripts[scriptName] = script
+		table.insert(state.scriptOrder, scriptName)
+	end
+
+	local label = title or tostring(key)
+	local entry = script.windows[key]
+	if not entry then
+		entry = {
+			key = key,
+			label = label,
+			lastFrameTouched = frame,
+		}
+		script.windows[key] = entry
+		table.insert(script.windowOrder, key)
+	else
+		entry.label = label
+		entry.lastFrameTouched = frame
+	end
+	script.lastFrameTouched = frame
+	return state, scriptName, key
+end
+
+local function buildLabels(keys, lookup, labelField)
+	local labels = {}
+	for i, key in ipairs(keys) do
+		local entry = lookup[key]
+		labels[i] = tostring(entry and entry[labelField] or key)
+	end
+	return labels
+end
+
+local function resetWindowForBegin(win)
 	_currentWindow = win
 	win:resetCursor()
+	win._idPrefix = nil
 	win._widgetCounter = 0
 	win._sectorStack = {}
 	win._widgetBounds = {}
@@ -198,6 +358,102 @@ function TimMenu.Begin(title, visible, id, options)
 	win._fontContext.current = win._fontContext.default
 	Globals.Style.Font = win._fontContext.current
 	draw.SetFont(win._fontContext.current)
+end
+
+local function renderConsolidatedTabs(win, state)
+	local scriptCount = #state.scriptOrder
+	if scriptCount == 0 then
+		return nil, nil
+	end
+
+	state.selectedScript = clampIndex(state.selectedScript, scriptCount)
+	local scriptLabels = buildLabels(state.scriptOrder, state.scripts, "label")
+	state.selectedScript = Widgets.TabControl(
+		win,
+		"__global_script_tabs",
+		scriptLabels,
+		state.selectedScript,
+		TimMenu.Options.GlobalWindow.UseHeaderTabs
+	)
+	state.selectedScript = clampIndex(state.selectedScript, scriptCount)
+
+	local scriptKey = state.scriptOrder[state.selectedScript]
+	local script = state.scripts[scriptKey]
+	if not script then
+		return nil, nil
+	end
+
+	local windowCount = #script.windowOrder
+	local selectedWindow = clampIndex(state.selectedWindows[scriptKey], windowCount)
+	if windowCount > 1 then
+		selectedWindow = Widgets.TabControl(
+			win,
+			"__global_window_tabs:" .. scriptKey,
+			buildLabels(script.windowOrder, script.windows, "label"),
+			selectedWindow,
+			false
+		)
+		selectedWindow = clampIndex(selectedWindow, windowCount)
+	end
+	state.selectedWindows[scriptKey] = selectedWindow
+	return scriptKey, script.windowOrder[selectedWindow]
+end
+
+local function beginConsolidated(title, resolvedVisible, key, options)
+	local state, scriptKey, windowKey = registerConsolidatedEntry(title, key, options)
+	local globalOptions = TimMenu.Options.GlobalWindow
+	local hostKey = globalOptions.Id
+	local win = getOrCreateWindow(hostKey, globalOptions.Title, resolvedVisible)
+	win:update()
+
+	if state.layoutFrame ~= globals.FrameCount() then
+		resetWindowForBegin(win)
+		state.layoutFrame = globals.FrameCount()
+		state.tabsFrame = nil
+	else
+		_currentWindow = win
+	end
+
+	if not win.visible or (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) then
+		_currentWindow = nil
+		return false
+	end
+
+	local selectedScriptKey, selectedWindowKey
+	if state.tabsFrame ~= globals.FrameCount() then
+		applyPendingFont(win)
+		selectedScriptKey, selectedWindowKey = renderConsolidatedTabs(win, state)
+		state.tabsFrame = globals.FrameCount()
+	else
+		selectedScriptKey = state.scriptOrder[clampIndex(state.selectedScript, #state.scriptOrder)]
+		local selectedScript = state.scripts[selectedScriptKey]
+		if selectedScript then
+			local selectedWindow = clampIndex(state.selectedWindows[selectedScriptKey], #selectedScript.windowOrder)
+			selectedWindowKey = selectedScript.windowOrder[selectedWindow]
+		end
+	end
+
+	if selectedScriptKey ~= scriptKey or selectedWindowKey ~= windowKey then
+		return false
+	end
+
+	win._idPrefix = tostring(scriptKey) .. ":" .. tostring(windowKey)
+	return true, win
+end
+
+function TimMenu.Begin(title, visible, id, options)
+	TimMenu.FontReset()
+	local resolvedVisible, resolvedId, resolvedOptions = resolveBeginArgs(visible, id, options)
+	local key = (resolvedId or title)
+
+	if isGlobalWindowEnabled(resolvedOptions) then
+		return beginConsolidated(title, resolvedVisible, key, resolvedOptions)
+	end
+
+	local win = getOrCreateWindow(key, title, resolvedVisible)
+	win:update()
+
+	resetWindowForBegin(win)
 
 	if not win.visible or (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) then
 		return false
@@ -352,7 +608,7 @@ function TimMenu.Selector(label, selectedIndex, options)
 	return Widgets.Selector(win, label, selectedIndex, options)
 end
 
-function TimMenu.TabControl(id, tabs, defaultSelection)
+function TimMenu.TabControl(id, tabs, defaultSelection, isHeader)
 	local win = TimMenu.GetCurrentWindow()
 	if not win then
 		if type(defaultSelection) == "string" then
@@ -362,7 +618,7 @@ function TimMenu.TabControl(id, tabs, defaultSelection)
 		end
 	end
 	applyPendingFont(win)
-	local newIndex, changed = Widgets.TabControl(win, id, tabs, defaultSelection)
+	local newIndex, changed = Widgets.TabControl(win, id, tabs, defaultSelection, isHeader)
 	if type(defaultSelection) == "string" then
 		return tabs[newIndex], changed
 	end
@@ -394,6 +650,41 @@ local function UpdateKeybindToggles()
 	end
 end
 
+local function pruneConsolidatedEntries(currentFrame)
+	local state = TimMenuGlobal.consolidation
+	if type(state) ~= "table" then
+		return
+	end
+
+	for scriptIndex = #state.scriptOrder, 1, -1 do
+		local scriptKey = state.scriptOrder[scriptIndex]
+		local script = state.scripts[scriptKey]
+		if not script or not script.lastFrameTouched or (currentFrame - script.lastFrameTouched) > 1 then
+			state.scripts[scriptKey] = nil
+			table.remove(state.scriptOrder, scriptIndex)
+			state.selectedWindows[scriptKey] = nil
+		else
+			for windowIndex = #script.windowOrder, 1, -1 do
+				local windowKey = script.windowOrder[windowIndex]
+				local entry = script.windows[windowKey]
+				if not entry or not entry.lastFrameTouched or (currentFrame - entry.lastFrameTouched) > 1 then
+					script.windows[windowKey] = nil
+					table.remove(script.windowOrder, windowIndex)
+				end
+			end
+			if #script.windowOrder == 0 then
+				state.scripts[scriptKey] = nil
+				table.remove(state.scriptOrder, scriptIndex)
+				state.selectedWindows[scriptKey] = nil
+			else
+				state.selectedWindows[scriptKey] = clampIndex(state.selectedWindows[scriptKey], #script.windowOrder)
+			end
+		end
+	end
+
+	state.selectedScript = clampIndex(state.selectedScript, #state.scriptOrder)
+end
+
 local reRegistered = false
 local function _TimMenu_GlobalDraw()
 	UpdateKeybindToggles()
@@ -419,6 +710,7 @@ local function _TimMenu_GlobalDraw()
 			end
 		end
 	end
+	pruneConsolidatedEntries(currentFrame)
 
 	-- PRIMARY FOCUS LOOP: Top-to-bottom search for window under mouse
 	local windowUnderMouse = nil

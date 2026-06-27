@@ -58,6 +58,33 @@ if TimMenu.Begin("Always Visible", { ShowAlways = true }) then
 end
 ```
 
+### Global Window Mode
+
+Enable global window mode to consolidate TimMenu windows from multiple scripts into one shared host window. Each script becomes a top-level tab. If one script creates multiple TimMenu windows, those windows become nested tabs inside that script's tab.
+
+```lua
+local TimMenu = require("TimMenu")
+
+TimMenu.SetGlobalWindowOptions({
+    Enabled = true,
+    Title = "Script Configs",
+})
+
+local windowOptions = {
+    ScriptName = "My Script", -- optional override; otherwise GetScriptName() is used when available
+}
+
+if TimMenu.Begin("Main Settings", windowOptions) then
+    TimMenu.Text("This content appears under the My Script tab.")
+end
+
+if TimMenu.Begin("Advanced Settings", windowOptions) then
+    TimMenu.Text("This becomes a nested tab for the same script.")
+end
+```
+
+Global window mode is opt-in. Without `TimMenu.SetGlobalWindowOptions({ Enabled = true })`, each `Begin` call keeps the existing separate-window behavior. New windows now use deterministic cascade placement instead of random spawn positions.
+
 ### Layout Controls
 
 | Function                  | Usage                           | Description                                     |
@@ -126,12 +153,13 @@ callbacks.Register("Draw", "ExampleDraw", OnDraw)
 
 ```
 
-### Recent Changes In v1.8.8
+### Recent Changes
 
-- New windows now try multiple random spawn positions and choose the least-overlapping candidate.
-- Spawn placement stays inside screen bounds when screen size is available.
-- Ties in spawn placement prefer positions closer to the top-left of the screen.
-- Menu visibility now follows the Lmaobox menu by default, with `ShowAlways` available as an override.
+- Added opt-in global window mode for consolidating script config windows into script tabs.
+- Multiple windows from the same script become nested tabs in global window mode.
+- `TabControl` now supports the public header-tab flag used by the demos.
+- New windows now use deterministic cascade placement instead of random spawn positions.
+- Menu visibility follows the Lmaobox menu by default, with `ShowAlways` available as an override.
 
 ### Grouping with Sectors
 

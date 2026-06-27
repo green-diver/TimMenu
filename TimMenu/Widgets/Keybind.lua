@@ -22,7 +22,11 @@ local function Keybind(win, label, kbState)
 
 	-- Persistent internal state for listening
 	win._keybinds = win._keybinds or {}
-	local stateKey = tostring(win.id) .. ":keybind_state:" .. label
+	local keyRoot = tostring(win.id)
+	if type(win._idPrefix) == "string" and win._idPrefix ~= "" then
+		keyRoot = keyRoot .. ":" .. win._idPrefix
+	end
+	local stateKey = keyRoot .. ":keybind_state:" .. label
 	local entry = win._keybinds[stateKey]
 	if not entry then
 		entry = { listening = false, waitingRelease = false }

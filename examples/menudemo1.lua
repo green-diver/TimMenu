@@ -1,6 +1,8 @@
 -- menudemo1.lua
 local TimMenu = require("TimMenu")
 
+TimMenu.SetGlobalWindowOptions({ Enabled = true, Title = "TimMenu Demos" })
+
 -- Script state
 local cbState1 = false
 local sliderVal1 = 25
@@ -33,6 +35,7 @@ local showcaseTextT = "Edit this showcase text!"
 local showcaseButtonClicks = 0
 local demoWindowOptions = {
 	ShowAlways = false,
+	ScriptName = "Menu Demo 1",
 }
 
 local function OnDraw_Menudemo1()

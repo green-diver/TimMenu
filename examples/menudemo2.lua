@@ -1,6 +1,8 @@
 -- menudemo2.lua
 local TimMenu = require("TimMenu")
 
+TimMenu.SetGlobalWindowOptions({ Enabled = true, Title = "TimMenu Demos" })
+
 -- Script state
 local cbState2 = true
 local sliderVal2 = 75
@@ -15,9 +17,12 @@ local comboState2 = { false, false, false, false }
 local bindKey2 = 0
 -- Color picker demo state
 local pickerColor2 = { 0, 255, 0, 255 }
+local demoWindowOptions = {
+	ScriptName = "Menu Demo 2",
+}
 
 local function OnDraw_Menudemo2()
-	if TimMenu.Begin("Demo Window 2 - Advanced") then
+	if TimMenu.Begin("Demo Window 2 - Advanced", demoWindowOptions) then
 		-- Use simplified TabControl (returns selected index)
 		currentTab = TimMenu.TabControl("DemoTabs", tabs, currentTab)
 

@@ -41,7 +41,11 @@ local function TabControl(win, id, tabs, defaultSelection, isHeader)
 	end
 
 	win._tabControls = win._tabControls or {}
-	local key = tostring(win.id) .. ":tabctrl:" .. id
+	local keyRoot = tostring(win.id)
+	if type(win._idPrefix) == "string" and win._idPrefix ~= "" then
+		keyRoot = keyRoot .. ":" .. win._idPrefix
+	end
+	local key = keyRoot .. ":tabctrl:" .. id
 	local entry = win._tabControls[key]
 	if not entry then
 		entry = { selected = resolveDefault() }

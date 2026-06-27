@@ -47,7 +47,11 @@ local function Slider(win, label, currentValue, minValue, maxValue, stepValue)
 	normalizedValue = math.min(1, math.max(0, normalizedValue))
 
 	-- Unified interaction processing
-	local widgetKey = win.id .. ":slider:" .. label .. ":" .. widgetIndex
+	local keyRoot = win.id
+	if type(win._idPrefix) == "string" and win._idPrefix ~= "" then
+		keyRoot = keyRoot .. ":" .. win._idPrefix
+	end
+	local widgetKey = keyRoot .. ":slider:" .. label .. ":" .. widgetIndex
 	local bounds = { x = absX, y = absY, w = width, h = height }
 	local hovered, down, clicked = Interaction.Process(win, widgetKey, bounds, false)
 
