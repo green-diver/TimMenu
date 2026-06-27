@@ -62,6 +62,8 @@ end
 
 Enable global window mode to consolidate TimMenu windows from multiple scripts into one shared host window. Each script becomes a top-level tab. If one script creates multiple TimMenu windows, those windows become nested tabs inside that script's tab.
 
+This feature is strictly opt-in. Existing scripts keep their normal one-window-per-`Begin` behavior unless a script enables global mode with `TimMenu.SetGlobalWindowOptions({ Enabled = true })`, or opts an individual window in with `GlobalWindow = true`/`Consolidate = true` in that window's options.
+
 ```lua
 local TimMenu = require("TimMenu")
 
@@ -83,7 +85,11 @@ if TimMenu.Begin("Advanced Settings", windowOptions) then
 end
 ```
 
-Global window mode is opt-in. Without `TimMenu.SetGlobalWindowOptions({ Enabled = true })`, each `Begin` call keeps the existing separate-window behavior. New windows now use deterministic cascade placement instead of random spawn positions.
+`ScriptName` is optional. If omitted, TimMenu uses `GetScriptName()` when Lmaobox provides it, then falls back to the window title or id. Passing `ScriptName` is recommended when multiple scripts should have clean, predictable tab labels.
+
+Use `GlobalWindow = false` or `Consolidate = false` in a specific `Begin` options table to keep that window separate even when global mode is enabled for the script.
+
+New windows now use deterministic cascade placement instead of random spawn positions.
 
 ### Layout Controls
 
@@ -155,8 +161,9 @@ callbacks.Register("Draw", "ExampleDraw", OnDraw)
 
 ### Recent Changes
 
-- Added opt-in global window mode for consolidating script config windows into script tabs.
+- Added strictly opt-in global window mode for consolidating script config windows into script tabs.
 - Multiple windows from the same script become nested tabs in global window mode.
+- Existing scripts keep separate-window behavior unless they enable global mode or opt a specific window into consolidation.
 - `TabControl` now supports the public header-tab flag used by the demos.
 - New windows now use deterministic cascade placement instead of random spawn positions.
 - Menu visibility follows the Lmaobox menu by default, with `ShowAlways` available as an override.

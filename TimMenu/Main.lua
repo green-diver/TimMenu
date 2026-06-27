@@ -26,7 +26,6 @@ if isMain then
 	assert(hasUnloadScript, "TimMenu standalone check: UnloadScript global not found")
 	printc(255, 100, 100, 255, "[TimMenu] Library loaded as main script. Unloading to prevent background resource usage.")
 	UnloadScript(scriptPath)
-	return {}
 end
 
 
